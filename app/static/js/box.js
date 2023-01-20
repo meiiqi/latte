@@ -1,4 +1,4 @@
-function Box(anchor, cursor, angle, boundingBox, boxHelper) {
+function Box(anchor, cursor, angle, boundingBox, boxHelper, geometry=null) {
     this.id = app.generate_new_box_id(); // id (int) of Box
     this.object_id = 'car'; // object id (string)
     this.color = hover_color.clone(); // color of corner points
@@ -8,13 +8,9 @@ function Box(anchor, cursor, angle, boundingBox, boxHelper) {
     this.added = false; // (boolean) whether the box has been added to boundingboxes
     this.boundingBox = boundingBox; // Box3; sets the size of the box
     this.boxHelper = boxHelper; // BoxHelper; helps visualize the box
+
     this.geometry = new THREE.Geometry(); // geometry for corner/rotating points
 
-    // visualizes the corners (in the non-rotated coordinates) of the box
-    this.points = new THREE.Points( this.geometry, pointMaterial );
-    this.points.frustumCulled = false; // allows 
-    this.timestamps = [];
-    
     this.colors = []; // colors of the corner points
 
     // add colors to points geometry
@@ -22,7 +18,7 @@ function Box(anchor, cursor, angle, boundingBox, boxHelper) {
         this.colors.push( this.color.clone().multiplyScalar( 7 ) );
     }
     this.geometry.colors = this.colors;
-    
+
     // order of corners is max, min, topleft, bottomright
     this.geometry.vertices.push(anchor);
     this.geometry.vertices.push(cursor);
@@ -30,18 +26,23 @@ function Box(anchor, cursor, angle, boundingBox, boxHelper) {
     this.geometry.vertices.push(cursor.clone());
     this.geometry.vertices.push(getCenter(anchor.clone(), cursor.clone()));
 
+    // visualizes the corners (in the non-rotated coordinates) of the box
+    this.points = new THREE.Points( this.geometry, pointMaterial );
+    this.points.frustumCulled = false; // allows
+    this.timestamps = [];
     this.hasPredictedLabel = false;
     this.text_label;
+    this.snowfall_label = "unlabelled";
 
     this.get_center = function() {
         var center3D = getCenter(this.geometry.vertices[0], this.geometry.vertices[1]);
         return new THREE.Vector2(center3D.z, center3D.x);
     }
-   
+
     // method for resizing bounding box given cursor coordinates
-    // 
-    // since BoxHelper3 draws a box in the same orientation as that of the point cloud, 
-    // we take the anchor and cursor, rotate them by the angle of the camera, draw the box, 
+    //
+    // since BoxHelper3 draws a box in the same orientation as that of the point cloud,
+    // we take the anchor and cursor, rotate them by the angle of the camera, draw the box,
     // then rotate the box back
     this.resize = function(cursor) {
         // checks and executes only if anchor does not overlap with cursor to avoid 0 determinant
@@ -50,9 +51,9 @@ function Box(anchor, cursor, angle, boundingBox, boxHelper) {
             var v1 = cursor.clone();
             var v2 = this.anchor.clone();
 
-            v1.y = 0;
-            v2.y = 0;
-            
+            // v1.y = 0;
+            // v2.y = 0;
+
             // rotate cursor and anchor
             rotate(v1, v2, this.angle);
 
@@ -65,7 +66,7 @@ function Box(anchor, cursor, angle, boundingBox, boxHelper) {
             var bottomCenter = getCenter(minVector, bottomRight);
 
             // need to do this to make matrix invertible
-            maxVector.y = 0.00001; 
+            maxVector.y += 0.00001;
 
             // setting bounding box limits
             this.boundingBox.set(minVector.clone(), maxVector.clone());
@@ -74,7 +75,7 @@ function Box(anchor, cursor, angle, boundingBox, boxHelper) {
             this.boxHelper.rotation.y = this.angle;
 
             // setting y coordinate back to zero since we are done with drawing
-            maxVector.y = 0;
+            maxVector.y -= 0.00001;
 
             // rotate back the corner points
             rotate(minVector, maxVector, -this.angle);
@@ -93,7 +94,47 @@ function Box(anchor, cursor, angle, boundingBox, boxHelper) {
         }
     }
 
-    // method to rotate bounding box by clicking and dragging rotate point, 
+    this.resize_incrementally = function(direction) {
+        if (direction == "bigger_on_x") {
+            this.geometry.scale(1.1, 1, 1)
+        }
+        else if (direction == "bigger_on_y") {
+            this.geometry.scale(1, 1.1, 1)
+        }
+        else if (direction == "bigger_on_z") {
+            this.geometry.scale(1, 1, 1.1)
+        }
+        else if (direction == "smaller_on_x") {
+            this.geometry.scale(0.9, 1, 1)
+        }
+        else if (direction == "smaller_on_y") {
+            this.geometry.scale(1, 0.9, 1)
+        }
+        else if (direction == "smaller_on_z") {
+            this.geometry.scale(1, 1, 0.9)
+        }
+
+        var maxVector = this.geometry.vertices[0].clone();
+        var minVector = this.geometry.vertices[1].clone();
+        var topLeft = this.geometry.vertices[2].clone();
+        var bottomRight = this.geometry.vertices[3].clone();
+        var topCenter = getCenter(maxVector, topLeft);
+        var bottomCenter = this.geometry.vertices[4].clone();
+
+        rotate(maxVector, minVector, this.angle);
+        rotate(topLeft, bottomRight, this.angle);
+        rotate(topCenter, bottomCenter, this.angle);
+
+        // need to do this to make matrix invertible
+        maxVector.y += 0.0000001;
+
+        this.boundingBox.set(minVector, maxVector);
+
+        // tell scene to update corner points
+        this.geometry.verticesNeedUpdate = true;
+    }
+
+    // method to rotate bounding box by clicking and dragging rotate point,
     // which is the top center point on the bounding box
     this.rotate = function(cursor) {
         // get corner points
@@ -104,7 +145,7 @@ function Box(anchor, cursor, angle, boundingBox, boxHelper) {
         var topCenter = getCenter(maxVector, topLeft);
         var bottomCenter = this.geometry.vertices[4].clone();
 
-        // get relative angle of cursor with respect to 
+        // get relative angle of cursor with respect to
         var center = getCenter(maxVector, minVector);
         var angle = getAngle(center, bottomCenter, cursor, topCenter);
 
@@ -125,24 +166,38 @@ function Box(anchor, cursor, angle, boundingBox, boxHelper) {
 
         // tell scene to update corner points
         this.geometry.verticesNeedUpdate = true;
-        
+
     }
 
     // method to translate bounding box given a reference point
     this.translate = function(v) {
-        // get difference in x and z coordinates between cursor when 
+        // get difference in x and z coordinates between cursor when
         // box was selected and current cursor position
-        var dx = v.x - this.cursor.x;
-        var dz = v.z - this.cursor.z;
+        if (globalThis.translate_ctrl)
+        {
+            var new_val = event.clientY
+            var dy = new_val - this.screen_y_val
+            this.anchor.y += dy;
+            this.screen_y_val = new_val // update
+            for (var i = 0; i < this.geometry.vertices.length; i++) {
+                var p = this.geometry.vertices[i];
+                p.y += dy;
+            }
+        }
+        else
+        {
+            var dx = v.x - this.cursor.x;
+            var dz = v.z - this.cursor.z;
 
-        // update all points related to box by dx and dz
-        this.anchor.x += dx;
-        this.anchor.z += dz;
-        this.cursor = v.clone();
-        for (var i = 0; i < this.geometry.vertices.length; i++) {
-            var p = this.geometry.vertices[i];
-            p.x += dx;
-            p.z += dz;
+            // update all points related to box by dx and dz
+            this.anchor.x += dx;
+            this.anchor.z += dz;
+            this.cursor = v.clone();
+            for (var i = 0; i < this.geometry.vertices.length; i++) {
+                var p = this.geometry.vertices[i];
+                p.x += dx;
+                p.z += dz;
+            }
         }
 
         // shift bounding box given new corner points
@@ -158,12 +213,117 @@ function Box(anchor, cursor, angle, boundingBox, boxHelper) {
         rotate(topCenter, bottomCenter, this.angle);
 
         // need to do this to make matrix invertible
-        maxVector.y += 0.0000001; 
+        maxVector.y += 0.0000001;
 
         this.boundingBox.set(minVector, maxVector);
 
         // tell scene to update corner points
         this.geometry.verticesNeedUpdate = true;
+    }
+
+    this.translate_incrementally = function(direction) {
+        var dy = 0;
+        var dx = 0;
+        var dz = 0;
+        if (direction == "up") {
+            dy = 0.5
+        }
+        else if (direction == "down") {
+            dy = -0.5
+        }
+        else if (direction == "right") {
+            dx = 0.5
+        }
+        else if (direction == "left") {
+            dx = -0.5
+        }
+        else if (direction == "front") {
+            dz = 0.5
+        }
+        else if (direction == "back") {
+            dz = -0.5
+        }
+        this.anchor.x += dx;
+        this.anchor.y += dy;
+        this.anchor.z += dz;
+
+        for (var i = 0; i < this.geometry.vertices.length; i++) {
+            var p = this.geometry.vertices[i];
+            p.x += dx;
+            p.y += dy;
+            p.z += dz;
+        }
+
+        var maxVector = this.geometry.vertices[0].clone();
+        var minVector = this.geometry.vertices[1].clone();
+        var topLeft = this.geometry.vertices[2].clone();
+        var bottomRight = this.geometry.vertices[3].clone();
+        var topCenter = getCenter(maxVector, topLeft);
+        var bottomCenter = this.geometry.vertices[4].clone();
+
+        rotate(maxVector, minVector, this.angle);
+        rotate(topLeft, bottomRight, this.angle);
+        rotate(topCenter, bottomCenter, this.angle);
+
+        // need to do this to make matrix invertible
+        maxVector.y += 0.0000001;
+
+        this.boundingBox.set(minVector, maxVector);
+
+        // tell scene to update corner points
+        this.geometry.verticesNeedUpdate = true;
+    }
+
+    this.select_points_inside = function() {
+        num_points = app.cur_pointcloud.geometry.vertices.length
+        var selected_indices = [];
+        for (var i = 0; i < num_points; i++)
+        {
+            var v = app.cur_pointcloud.geometry.vertices[i];
+
+            if (this.boundingBox.containsPoint(v))
+            {
+                selected_indices.push(i);
+            }
+
+        }
+        return selected_indices;
+    }
+
+    this.label_points_as_snow = function(points_indices) {
+        // this.snowfall_label = "snow"
+        highlightPoints_customColor(points_indices, 0x00FFFF);
+
+        app.snow_points_indices = app.snow_points_indices.concat(points_indices)
+    }
+
+    this.label_points_as_non_snow = function(points_indices) {
+        highlightPoints_customColor(points_indices, 0xCCCCCC);
+
+        app.non_snow_points_indices = app.non_snow_points_indices.concat(points_indices)
+        // this.snowfall_label = "non-snow"
+    }
+
+    this.unlabel_points = function(points_indices) {
+        // this.snowfall_label = "unlabelled"
+        unhighlightPoints(points_indices);
+
+        for (var i=0; i < points_indices.length; i++)
+        {
+            // remove point from list of non snow points
+            var idx = app.non_snow_points_indices.indexOf(points_indices[i]);
+            if (idx >= 0)
+            {
+                app.non_snow_points_indices.splice(idx, 1);
+            }
+
+            // remove point from list of snow points
+            idx = app.snow_points_indices.indexOf(points_indices[i]);
+            if (idx >= 0)
+            {
+                app.snow_points_indices.splice(idx, 1);
+            }
+        }
     }
 
     // method to highlight box given cursor
@@ -226,9 +386,9 @@ function Box(anchor, cursor, angle, boundingBox, boxHelper) {
         div.innerHTML = "hi there!";
         div.style.top = -1000;
         div.style.left = -1000;
-    
+
         var _this = this;
-    
+
         return {
           element: div,
           parent: false,
@@ -242,7 +402,7 @@ function Box(anchor, cursor, angle, boundingBox, boxHelper) {
           updatePosition: function() {
             if (this.parent) {
               this.position.copy(this.parent.position);
-            }            
+            }
             var coords2d = this.get2DCoords(this.position, camera);
             this.element.style.left = coords2d.x + 'px';
             this.element.style.top = coords2d.y + 'px';
@@ -255,6 +415,20 @@ function Box(anchor, cursor, angle, boundingBox, boxHelper) {
           }
         };
     }
+
+    this.label_as_snow = function() {
+        points = this.select_points_inside()
+        this.label_points_as_snow(points)
+    }
+    this.label_as_non_snow = function() {
+        points = this.select_points_inside()
+        this.label_points_as_non_snow(points)
+    }
+
+    this.unlabel = function() {
+        points = this.select_points_inside()
+        this.unlabel_points(points)
+    }
 }
 
 Box.parseJSON = function(json_boxes) {
@@ -266,21 +440,20 @@ Box.parseJSON = function(json_boxes) {
     }
     for (var i = 0; i < json_boxes.length; i++) {
         json_box = json_boxes[i];
-        w = json_box['width'];
-        l = json_box['length'];
-        cx = json_box['center']['x'];
-        cy = json_box['center']['y'];
         angle = json_box['angle'];
+        min = json_box['boundingBox']['min'];
+        max = json_box['boundingBox']['max'];
+        boundingBox_min = new THREE.Vector3(min["x"], min["y"], min["z"]);
+        boundingBox_max = new THREE.Vector3(max["x"], max["y"], max["z"]);
 
-        center = new THREE.Vector3(cy, 0, cx);
-        top_right = new THREE.Vector3(cy + l / 2, app.eps, cx + w / 2);
-        bottom_left = new THREE.Vector3(cy - l / 2, 0, cx - w / 2);
-        
         // rotate cursor and anchor
-        rotate(top_right, bottom_left, -angle);
-        box = createBox(top_right, bottom_left, angle);
+        rotate(boundingBox_max, boundingBox_min, -angle);
+        box = createBox(boundingBox_max, boundingBox_min, angle);
         if (json_box.hasOwnProperty('box_id')) {
             box.id = json_box.box_id;
+        }
+        if (json_box.hasOwnProperty('object_id')) {
+            box.object_id = json_box.object_id;
         }
         bounding_boxes.push(box);
         console.log("output: ", bounding_boxes);
@@ -291,7 +464,7 @@ Box.parseJSON = function(json_boxes) {
 
 // gets angle between v1 and v2 with respect to origin
 //
-// v3 is an optional reference point that should be v1's reflection about the origin, 
+// v3 is an optional reference point that should be v1's reflection about the origin,
 // but is needed to get the correct sign of the angle
 function getAngle(origin, v1, v2, v3) {
     v1 = v1.clone();
@@ -318,7 +491,7 @@ function getAngle(origin, v1, v2, v3) {
         var temp2 = v1.clone();
         rotate(temp2, v3.clone(), -angle);
         var d2 = distance2D(temp2, v2);
-        
+
 
 
         // compares distances to determine sign of angle
@@ -372,7 +545,7 @@ function highlightCorners() {
 
 
 // method to add box to boundingBoxes and object id table
-// should only be called when you physically draw a box, 
+// should only be called when you physically draw a box,
 // not for loading a frame
 function addBox(box) {
     app.cur_frame.bounding_boxes.push(box);
@@ -441,17 +614,84 @@ function deleteSelectedBox() {
     }
 }
 
+function translate_box_up() {
+    if (selectedBox) {
+        selectedBox.translate_incrementally("up")
+    }
+}
 
+function translate_box_down() {
+    if (selectedBox) {
+        selectedBox.translate_incrementally("down")
+    }
+}
+
+function translate_box_right() {
+    if (selectedBox) {
+        selectedBox.translate_incrementally("right")
+    }
+}
+
+function translate_box_left() {
+    if (selectedBox) {
+        selectedBox.translate_incrementally("left")
+    }
+}
+
+function translate_box_front() {
+    if (selectedBox) {
+        selectedBox.translate_incrementally("front")
+    }
+}
+
+function translate_box_back() {
+    if (selectedBox) {
+        selectedBox.translate_incrementally("back")
+    }
+}
+
+function shrink_box_x() {
+    if (selectedBox) {
+        selectedBox.resize_incrementally("smaller_on_x")
+    }
+}
+
+function shrink_box_y() {
+    if (selectedBox) {
+        selectedBox.resize_incrementally("smaller_on_y")
+    }
+}
+
+function shrink_box_z() {
+    if (selectedBox) {
+        selectedBox.resize_incrementally("smaller_on_z")
+    }
+}
+
+function grow_box_x() {
+    if (selectedBox) {
+        selectedBox.resize_incrementally("bigger_on_x")
+    }
+}
+
+function grow_box_y() {
+    if (selectedBox) {
+        selectedBox.resize_incrementally("bigger_on_y")
+    }
+}
+
+function grow_box_z() {
+    if (selectedBox) {
+        selectedBox.resize_incrementally("bigger_on_z")
+    }
+}
+
+// Store all useful information of a bounding box
 function OutputBox(box) {
-    var v1 = box.geometry.vertices[0];
-    var v2 = box.geometry.vertices[1];
-    var v3 = box.geometry.vertices[2];
-    var center = getCenter(v1, v2);
     this.box_id = box.id;
-    this.center = new THREE.Vector2(center.z, center.x);
-    this.width = distance2D(v2, v3);
-    this.length = distance2D(v1, v3);
     this.angle = box.angle;
     this.object_id = box.object_id;
     this.timestamps = box.timestamps;
+    this.boundingBox = box.boundingBox;
+    this.snowfall_label = box.snowfall_label;
 }

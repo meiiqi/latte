@@ -1,4 +1,4 @@
-function normalizeColors(vertices, color) {
+function normalizeColors(vertices) {
     var maxColor = Number.NEGATIVE_INFINITY;
     var minColor = Number.POSITIVE_INFINITY;
     var intensities = [];
@@ -42,11 +42,11 @@ function normalizeColors(vertices, color) {
             intensity = 0;
         }
         colors[i].setRGB(intensity, 0, 1 - intensity);
-        colors[i].multiplyScalar(intensity * 5);    
+        colors[i].multiplyScalar(intensity * 5);
         app.cur_pointcloud.geometry.colorsNeedUpdate = true;
     }
-    
-    return colors;
+
+    return [...colors];
 }
 
 function highlightPoints(indices) {
@@ -58,18 +58,45 @@ function highlightPoints(indices) {
 
 }
 
+function highlightPoints_customColor(indices, color) {
+    var pointcloud = app.cur_pointcloud;
+    for (var j = 0; j < indices.length; j++) {
+        pointcloud.geometry.colors[indices[j]] = new THREE.Color(color);
+    }
+    pointcloud.geometry.colorsNeedUpdate = true;
+}
+
+function unhighlightPoints(indices) {
+    var pointcloud = app.cur_pointcloud;
+    for (var j = 0; j < indices.length; j++) {
+        var color = app.cur_pointcloud_normalized_colors[indices[j]];
+        pointcloud.geometry.colors[indices[j]] = new THREE.Color(color);
+    }
+    pointcloud.geometry.colorsNeedUpdate = true;
+}
+
+function show_snow_points() {
+    highlightPoints_customColor(app.snow_points_indices, 0x00FFFF)
+    unhighlightPoints(app.non_snow_points_indices)
+}
+
+function show_non_snow_points() {
+    highlightPoints_customColor(app.non_snow_points_indices, 0xCCCCCC)
+    unhighlightPoints(app.snow_points_indices)
+}
+
 function generateNewPointCloud( vertices, color ) {
     var geometry = new THREE.Geometry();
     var colors = [];
     var k = 0;
     for ( var i = 0, l = vertices.length / DATA_STRIDE; i < l; i ++ ) {
         // creates new vector from a cluster and adds to geometry
-        var v = new THREE.Vector3( vertices[ DATA_STRIDE * k + 1 ], 
+        var v = new THREE.Vector3( vertices[ DATA_STRIDE * k + 1 ],
             vertices[ DATA_STRIDE * k + 2 ], vertices[ DATA_STRIDE * k ] );
 
         // stores y coordinates into yCoords
         // app.cur_frame.ys.push(vertices[ DATA_STRIDE * k + 2 ]);
-        
+
         // add vertex to geometry
         geometry.vertices.push( v );
         colors.push(color.clone());
@@ -83,7 +110,7 @@ function generateNewPointCloud( vertices, color ) {
     // creates pointcloud given vectors
     var pointcloud = new THREE.Points( geometry, material );
     app.cur_pointcloud = pointcloud;
-    normalizeColors(vertices, color);
+    app.cur_pointcloud_normalized_colors = normalizeColors(vertices);
     return pointcloud;
 }
 
@@ -95,7 +122,7 @@ function updatePointCloud( vertices, color ) {
     var v;
     for ( var i = 0; i < n / DATA_STRIDE; i ++ ) {
         if (i >= l) {
-            v = new THREE.Vector3( vertices[ DATA_STRIDE * k + 1 ], 
+            v = new THREE.Vector3( vertices[ DATA_STRIDE * k + 1 ],
                 app.cur_frame.ys[k], vertices[ DATA_STRIDE * k ] );
             geometry.vertices.push(v);
             geometry.colors.push(color.clone());
@@ -113,7 +140,8 @@ function updatePointCloud( vertices, color ) {
         }
         k++;
     }
-    normalizeColors(vertices, null);
+    normalizeColors(vertices);
+    // app.cur_pointcloud_normalized_colors = normalizeColors(vertices);
     geometry.computeBoundingBox();
     console.log("fii");
     if (app.cur_frame != null && app.cur_frame.mask_rcnn_indices.length > 0) {

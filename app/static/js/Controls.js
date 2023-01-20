@@ -25,7 +25,7 @@ function toggleRecord() {
         isRecording = false;
         controls.enabled = false;
         controls.update();
-        
+
     } else {
         // resume recording
         isRecording = true;
@@ -46,26 +46,111 @@ function onKeyDown2(event) {
         switch(KeyID)
         {
             case 8: // backspace
-            deleteSelectedBox();
-            break; 
+                deleteSelectedBox();
+                break;
+
             case 46: // delete
-            deleteSelectedBox();
-            break;
+                deleteSelectedBox();
+                break;
 
             case 65: // a key
-            autoDrawModeToggle(true);
-            break;
+                autoDrawModeToggle(true);
+                break;
 
             case 90: // z key
-            showPreviousFrameBoundingBoxToggle(true);
-            break;
+                showPreviousFrameBoundingBoxToggle(true);
+                break;
 
-            case 68:
+            case 68: // d key
+                toggleTranslateControl()
+                break;
+            case 83: // s key
+                toggleResizeControl()
+                break;
+            case 37: // Left arrow
+                if (!controls.enabled) {
+                    if (globalThis.translate_ctrl) {
+                        translate_box_left()
+                    }
+                    if (globalThis.resize_ctrl) {
+                        shrink_box_x()
+                    }
+                }
+                break;
+            case 38: // Up arrow
+                if (!controls.enabled) {
+                    if (globalThis.translate_ctrl) {
+                        if (globalThis.apply_on_y_axis) {
+                            translate_box_up()
+                        }
+                        else
+                        {
+                            translate_box_back()
+                        }
+                    }
+
+                    if (globalThis.resize_ctrl) {
+                        if (globalThis.apply_on_y_axis) {
+                            grow_box_y()
+                        }
+                        else
+                        {
+                            grow_box_z()
+                        }
+                    }
+                }
+                break;
+            case 39: // Right arrow
+                if (!controls.enabled) {
+                    if (globalThis.translate_ctrl) {
+                        translate_box_right()
+                    }
+                    if (globalThis.resize_ctrl) {
+                        grow_box_x()
+                    }
+                }
+                break;
+            case 40: // Down arrow
+                if (!controls.enabled) {
+                    if (globalThis.translate_ctrl) {
+                        if (globalThis.apply_on_y_axis)
+                        {
+                            translate_box_down()
+                        }
+                        else
+                        {
+                            translate_box_front()
+                        }
+                    }
+
+                    if (globalThis.resize_ctrl) {
+                        if (globalThis.apply_on_y_axis) {
+                            shrink_box_y()
+                        }
+                        else
+                        {
+                            shrink_box_z()
+                        }
+                    }
+                }
+                break;
+            case 89: // y
+                globalThis.apply_on_y_axis = globalThis.apply_on_y_axis ? false : true;
+                break;
+            case 67: // c: show all labeled snow points
+                globalThis.key_show_snow_points = true
+                globalThis.key_show_non_snow_points = false
+                show_snow_points()
+                break;
+            case 86: // v: show all labeled non-snow points
+                globalThis.key_show_non_snow_points = true
+                globalThis.key_show_snow_points = false
+                show_non_snow_points()
+                break;
             default:
             break;
         }
-    }   
-    
+    }
 }
 
 // controller for releasing hotkeys
@@ -80,6 +165,29 @@ function onKeyUp2(event) {
           toggleControl(true);
           break;
         }
+    }
+}
+
+function toggleTranslateControl()
+{
+    if (globalThis.translate_ctrl) {
+        globalThis.translate_ctrl = false
+    }
+    else
+    {
+        globalThis.translate_ctrl = true
+        globalThis.resize_ctrl = false // translate and resize control are mutually exclusive
+    }
+}
+
+function toggleResizeControl() {
+    if (globalThis.resize_ctrl) {
+        globalThis.resize_ctrl = false
+    }
+    else
+    {
+        globalThis.resize_ctrl = true
+        globalThis.translate_ctrl = false // translate and resize control are mutually exclusive
     }
 }
 
@@ -118,7 +226,7 @@ function updateCroppedImagePanel(child) {
         $("#panel2").find("img").attr({'src': "static/images/cropped_image.jpg?foo=" + new Date().getTime()});
         $("#panel2").slideDown( "slow" );
     }
-    
+
 }
 
 // controller for pressing hotkeys
@@ -132,7 +240,7 @@ function onKeyDown(event) {
         {
             case 8: // backspace
             deleteSelectedBox();
-            break; 
+            break;
             case 46: // delete
             deleteSelectedBox();
             break;
@@ -140,7 +248,7 @@ function onKeyDown(event) {
             default:
             break;
         }
-    }   
+    }
 }
 
 // controller for releasing hotkeys

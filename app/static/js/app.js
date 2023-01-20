@@ -61,11 +61,11 @@ function App() {
 		// this.set_controls(fname);
 		if (this.cur_frame == frame || this.lock_frame) {
 			return;
-		} 
+		}
 		if (this.cur_frame) {
 			this.write_frame_out();
-			this.cur_frame.scene_remove_frame_children();	
-			this.show_prev_frame = false;	
+			this.cur_frame.scene_remove_frame_children();
+			this.show_prev_frame = false;
 		}
 		if (frame) {
 			show(frame);
@@ -85,14 +85,27 @@ function App() {
 
 					if (res.length > 1 && res[1].length > 0)  {
 						annotation = parsePythonJSON(res[1]);
-						bounding_boxes_json = Object.values(annotation["frame"]["bounding_boxes"]);
+						console.log("annotation", annotation)
+
+						var frame_annotations = annotation["frame"]
+
+						// Load snowfall annotations
+						var non_snow_points = frame_annotations["non_snow_points"];
+						var snow_points = frame_annotations["snow_points"];
+						app.non_snow_points_indices = non_snow_points.length > 0 ? non_snow_points : [];
+						app.snow_points_indices = snow_points.length > 0 ? snow_points : [];
+
+						// Load bounding box annotations
+						var bounding_boxes = frame_annotations["bounding_boxes"];
+						bounding_boxes_json = Object.values(bounding_boxes);
 						bounding_boxes = Box.parseJSON(bounding_boxes_json);
 						for (var i = 0; i < bounding_boxes.length; i++) {
 							box = bounding_boxes[i];
 							frame.bounding_boxes.push(box);
 							box.add_text_label();
-							frame.annotated = true;
 						}
+
+						frame.annotated = true;
 					}
 
 					this.frames[fname] = frame;
@@ -117,7 +130,7 @@ function App() {
 		if (cur_idx < 0 ||
 			cur_idx >= this.fnames.length - 1 ||
 			this.frames[this.fnames[cur_idx+1]].is_annotated() ||
-			!this.frames[this.fnames[cur_idx]] || 
+			!this.frames[this.fnames[cur_idx]] ||
 			!this.frames[this.fnames[cur_idx]].is_annotated()) {
 			// console.log("annotated: ", this.frames[fname].is_annotated());
 			return;
@@ -130,7 +143,7 @@ function App() {
 
 		var next_frame = this.frames[this.fnames[cur_idx+1]];
 		console.log(next_frame.is_annotated);
-		
+
 		if (!next_frame.annotated) {
 			next_frame.annotated = true;
 			$.ajax({
@@ -148,14 +161,14 @@ function App() {
 						if (res.hasOwnProperty(box_id)) {
 							console.log(res[box_id]);
 							var json_box = res[box_id];
-							var corner1 = new THREE.Vector3(json_box.corner1[1], 
-															this.eps, 
+							var corner1 = new THREE.Vector3(json_box.corner1[1],
+															this.eps,
 															json_box.corner1[0]);
-							var corner2 = new THREE.Vector3(json_box.corner2[1], 
-															0, 
+							var corner2 = new THREE.Vector3(json_box.corner2[1],
+															0,
 															json_box.corner2[0]);
-							var box = createAndDrawBox(corner1, 
-											  corner2, 
+							var box = createAndDrawBox(corner1,
+											  corner2,
 											  json_box['angle']);
 							addBox(box);
 						}
@@ -175,7 +188,7 @@ function App() {
 			var frame = this.get_frame(fname);
 			return frame.data;
 		}
-		
+
 	};
 
 
@@ -225,12 +238,12 @@ function App() {
 					console.log(response);
 					var str = response.replace(/'/g, "\"");
 					var res = JSON.parse(str);
-	
+
 					var corner1 = new THREE.Vector3(res.corner1[1], this.eps, res.corner1[0]);
 					var corner2 = new THREE.Vector3(res.corner2[1], 0, res.corner2[0]);
 					console.log(corner1);
-					var box = createAndDrawBox(corner1, 
-										corner2, 
+					var box = createAndDrawBox(corner1,
+										corner2,
 										res['angle']);
 					addBox(box);
 				},
@@ -259,7 +272,7 @@ function App() {
 		if (!this.show_prev_frame) {
 			this.show_prev_frame = true;
 			prev_frame.scene_add_frame_bounding_box();
-			
+
 		} else if (this.show_prev_frame) {
 			this.show_prev_frame = false;
 			console.log("remove");
@@ -276,7 +289,7 @@ function App() {
 			var stringifiedOutput = JSON.stringify(output);
 			$.ajax({
 				url: '/writeOutput',
-				data: JSON.stringify({output: {filename: this.cur_frame.fname, 
+				data: JSON.stringify({output: {filename: this.cur_frame.fname,
 												file: stringifiedOutput}}),
 				type: 'POST',
 				contentType: 'application/json;charset=UTF-8',
@@ -332,7 +345,7 @@ function App() {
 	if (!enable_mask_rcnn || this.frames[fname].mask_rcnn_indices.length > 0) {return;}
 		this.lock_frame = true;
 		$.ajax({
-			context: this, 
+			context: this,
 			url: '/getMaskRCNNLabels',
 			data: JSON.stringify({fname: fname}),
 			type: 'POST',

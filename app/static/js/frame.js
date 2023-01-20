@@ -10,9 +10,9 @@ function Frame(fname, data) {
 
 	var k = 0;
     for ( var i = 0, l = this.data.length / DATA_STRIDE; i < l; i ++ ) {
-  
+
         this.ys.push(this.data[ DATA_STRIDE * k + 2 ]);
-        
+
         k++;
     }
 
@@ -61,8 +61,13 @@ function OutputFrame(frame) {
 	this.bounding_boxes = [];
 	// this.evaluator = new OutputEvaluator(frame.evaluator);
 
+	// Snowfall info
+	this.snow_points = app.snow_points_indices;
+	this.non_snow_points = app.non_snow_points_indices;
+	this.unlabelled_points = [];
+
 	for (var i = 0; i < frame.bounding_boxes.length; i++) {
 		this.bounding_boxes.push(frame.bounding_boxes[i].output());
 	}
 }
-	
+

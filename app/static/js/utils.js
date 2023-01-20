@@ -40,11 +40,45 @@ function get3DCoord() {
     mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
     mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
     mouse.z = 0.5;
-    mouse.unproject( camera );
-
-    var dir = mouse.sub( camera.position ).normalize();
+    console.log("mouse", mouse)
+    mouse.unproject( camera ); // camera's NDC to world space
+    var dir = mouse.clone().sub( camera.position ).normalize();
     var distance = - camera.position.y / dir.y;
-    var pos = camera.position.clone().add( dir.multiplyScalar( distance ) );
+    var pos = camera.position.clone().add( dir.clone().multiplyScalar( distance ) );
+
+    console.log("clientX", event.clientX)
+    console.log("clientY", event.clientY)
+    console.log("window.innerWidth", window.innerWidth)
+    console.log("window.innerHeight", window.innerHeight)
+    console.log("mouse unprojected", mouse)
+    console.log("camera.position", camera.position)
+    console.log("dir", dir)
+    console.log("distance", distance)
+    console.log("pos", pos)
+
+    return pos;
+}
+
+function get3DCoord_cameraView() {
+    mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
+    mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+    mouse.z = 0.5;
+    console.log("mouse", mouse)
+    mouse.unproject( camera ); // camera's NDC to world space
+    var dir = mouse.clone().sub( camera.position ).normalize();
+    var distance = - camera.position.y / dir.y;
+    var pos = camera.position.clone().add( dir.clone().multiplyScalar( distance ) );
+
+    console.log("clientX", event.clientX)
+    console.log("clientY", event.clientY)
+    console.log("window.innerWidth", window.innerWidth)
+    console.log("window.innerHeight", window.innerHeight)
+    console.log("mouse unprojected", mouse)
+    console.log("camera.position", camera.position)
+    console.log("dir", dir)
+    console.log("distance", distance)
+    console.log("pos", pos)
+
     return pos;
 }
 
@@ -59,26 +93,26 @@ function getMaxElement(arr) {
 }
 
 function getMin(v1, v2) {
-    return new THREE.Vector3(Math.min(v1.x, v2.x), 
-                             Math.min(v1.y, v2.y), 
+    return new THREE.Vector3(Math.min(v1.x, v2.x),
+                             Math.min(v1.y, v2.y),
                              Math.min(v1.z, v2.z))
 }
 
 function getMax(v1, v2) {
-    return new THREE.Vector3(Math.max(v1.x, v2.x), 
-                             Math.max(v1.y, v2.y), 
+    return new THREE.Vector3(Math.max(v1.x, v2.x),
+                             Math.max(v1.y, v2.y),
                              Math.max(v1.z, v2.z))
 }
 
 function getTopLeft(v1, v2) {
-    return new THREE.Vector3(Math.min(v1.x, v2.x), 
-                             Math.max(v1.y, v2.y), 
+    return new THREE.Vector3(Math.min(v1.x, v2.x),
+                             Math.max(v1.y, v2.y),
                              Math.max(v1.z, v2.z))
 }
 
 function getBottomRight(v1, v2) {
-    return new THREE.Vector3(Math.max(v1.x, v2.x), 
-                             Math.min(v1.y, v2.y), 
+    return new THREE.Vector3(Math.max(v1.x, v2.x),
+                             Math.min(v1.y, v2.y),
                              Math.min(v1.z, v2.z))
 }
 
@@ -110,6 +144,7 @@ function getOppositeCorner(idx) {
 }
 
 function containsPoint(box, v) {
+    // console.log("pos", v)
     var center = getCenter(box.boundingBox.max, box.boundingBox.min);
     var diff = v.clone();
     diff.sub(center);
@@ -171,7 +206,7 @@ function getIntersection(b) {
 function distance2D(v1, v2) {
     return Math.pow(Math.pow(v1.x - v2.x, 2) + Math.pow(v1.z - v2.z, 2), 0.5)
 }
-  
+
 function closestPoint(p, vertices) {
     var shortestDistance = Number.POSITIVE_INFINITY;
     var closestIdx = null;
@@ -184,16 +219,16 @@ function closestPoint(p, vertices) {
     return closestIdx;
 }
 
-function save(boundingBoxes) {
-  var outputBoxes = []
-  for (var i = 0; i < boundingBoxes.length; i++) {
-    outputBoxes.push(new OutputBox(boundingBoxes[i]));
-  }
-  var output = {"bounding boxes": outputBoxes};
-  var stringifiedOutput = JSON.stringify(output);
-  var file = new File([stringifiedOutput], "test.json", {type: "/json;charset=utf-8"});
-  saveAs(file);
-}
+// function save(boundingBoxes) {
+//   var outputBoxes = []
+//   for (var i = 0; i < boundingBoxes.length; i++) {
+//     outputBoxes.push(new OutputBox(boundingBoxes[i]));
+//   }
+//   var output = {"bounding boxes": outputBoxes};
+//   var stringifiedOutput = JSON.stringify(output);
+//   var file = new File([stringifiedOutput], "test.json", {type: "/json;charset=utf-8"});
+//   saveAs(file);
+// }
 
 function save_image() {
     renderer.domElement.toBlob(function (blob) {

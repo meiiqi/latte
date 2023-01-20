@@ -15,13 +15,13 @@ class FrameHandler():
 	def __init__(self):
 		self.drives = dict()
 		for drive in listdir(self.DATASET_DIR):
-			if 'sync' in drive:
-				bin_dir = join(self.DATASET_DIR, drive, self.INPUT_BIN_DIR)
-				self.drives[drive] = []
-				for f in listdir(bin_dir):
-					if isfile(join(bin_dir, f)) and '.bin' in f:
-						self.drives[drive].append(f.split('.bin')[0])
-				self.drives[drive] = sorted(self.drives[drive])
+			# if 'sync' in drive:
+			bin_dir = join(self.DATASET_DIR, drive, self.INPUT_BIN_DIR)
+			self.drives[drive] = []
+			for f in listdir(bin_dir):
+				if isfile(join(bin_dir, f)) and '.bin' in f:
+					self.drives[drive].append(f.split('.bin')[0])
+			self.drives[drive] = sorted(self.drives[drive])
 
 	def get_frame_names(self):
 		"""

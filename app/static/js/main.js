@@ -30,7 +30,7 @@ var pointMaterial = new THREE.PointsMaterial( { size: pointSize * 8, sizeAttenua
 var isRecording = true;
 var app;
 var mean, sd, filteredIntensities, min, max, intensities, colors;
-var selected_color = new THREE.Color(0x78F5FF);
+var selected_color = new THREE.Color(0x00FF00);
 var hover_color = new THREE.Color(1, 0, 0);
 var default_color = new THREE.Color(0xffff00);
 var autoDrawMode = false;
@@ -105,7 +105,7 @@ function predictLabel(boundingBox) {
     if (boundingBox.hasPredictedLabel == false) {
         $.ajax({
             url: '/predictLabel',
-            data: JSON.stringify({frames: [{filename: app.cur_frame.fname, 
+            data: JSON.stringify({frames: [{filename: app.cur_frame.fname,
                                             bounding_boxes: [stringifyBoundingBoxes([boundingBox])[0]] }],
                                   filename: app.cur_frame.fname}),
             type: 'POST',
@@ -178,13 +178,16 @@ function onDocumentMouseMove( event ) {
     app.handleBoxMove();
 
     if (mouseDown && !isRotating && !isResizing && !isMoving) {
+        console.log("mouseDown && !isRotating && !isResizing && !isMoving onDocumentMouseMove")
         if (newBox != null && !newBox.added) {
+            console.log("newBox != null && !newBox.added onDocumentMouseMove")
+
             scene.add(newBox.points);
             scene.add( newBox.boxHelper );
             newBox.added = true;
         }
         newBox.resize(app.getCursor());
-    } 
+    }
 
         var cursor = getCurrentPosition();
         if (!controls.enabled) {
@@ -194,8 +197,8 @@ function onDocumentMouseMove( event ) {
 
             // highlights closest corner point that intersects with cursor
             highlightCorners();
-        } 
-    // } 
+        }
+    // }
 }
 
 
@@ -266,7 +269,7 @@ function onDocumentMouseUp( event ) {
             predictBox = rotatingBox;
         }
         if (predictBox) {
-            predictLabel(predictBox);            
+            predictLabel(predictBox);
         }
         isResizing = false;
         isRotating = false;
@@ -288,17 +291,21 @@ function onDocumentMouseDown( event ) {
 
     if (isRecording) {
         if (!controls.enabled) {
+            console.log("!controls.enabled onDocumentMouseDown")
             mouseDown = true;
             anchor = get3DCoord();
+            console.log("anchor", anchor)
             var intersection = intersectWithCorner();
             // update hover box
             if (selectedBox && (hoverBoxes.length == 0 || hoverBoxes[0] != selectedBox)) {
+                console.log("if (selectedBox &&")
                 selectedBox.changeBoundingBoxColor(0xffff00);
                 selectedBox = null;
                 isMoving = false;
             }
 
             if (intersection != null) {
+                console.log("if (intersection != null)")
                 var box = intersection[0];
                 var closestIdx = closestPoint(anchor, box.geometry.vertices);
                 // console.log("closest: ", closestIdx);
@@ -311,23 +318,35 @@ function onDocumentMouseDown( event ) {
                     resizeBox.anchor = resizeBox.geometry.vertices[getOppositeCorner(closestIdx)].clone();
                 }
             } else if (hoverBoxes.length == 1) {
+                console.log("else if")
                 isMoving = true;
                 hoverBoxes[0].select(get3DCoord());
                 selectRow(selectedBox.id);
 
             } else {
+                console.log("else: creating new Box")
                 angle = camera.rotation.z;
-                var v = anchor.clone();
+                var cursor = anchor.clone();
                 anchor.x += .000001;
-                anchor.y -= .000001;
+                anchor.y += 10.000001;
                 anchor.z += .000001;
-                newBoundingBox = new THREE.Box3(anchor, v);
+                newBoundingBox = new THREE.Box3(anchor, cursor);
+                // newBoundingBox = new THREE.Box3(new THREE.Vector3(0, 0, 0), new THREE.Vector3(10, 10, 10));
                 newBoxHelper = new THREE.Box3Helper( newBoundingBox, 0xffff00 );
                 anchor = anchor.clone();
 
-                newBox = new Box(anchor, v, angle, newBoundingBox, newBoxHelper);
+                // newBox = new Box(new THREE.Vector3(0, 0, 0), new THREE.Vector3(10, 10, 10), angle, newBoundingBox, newBoxHelper);
+                newBox = new Box(anchor, cursor, angle, newBoundingBox, newBoxHelper);
             }
         }
+        else
+        {
+            console.log("controls enabled onDocumentMouseDown");
+        }
+    }
+    else
+    {
+        console.log("not recording");
     }
 }
 
@@ -396,25 +415,52 @@ function update_footer(pos) {
     } else {
         reminder_text = "Resume recording to continue annotating";
     }
-    
+
     $("#draw_bounding_box_reminder").find("p").text(reminder_text);
     // console.log(reminder_text);
 
-    
+
     var x = pos.z;
     var y = pos.x;
 
-    $("#footer").find("p").html("x: {0}{1}y: {2}".format(x.toFixed(3), 
-                                                        "<br />", 
-                                                        y.toFixed(3)));
+    key_pressed = []
+    if (globalThis.translate_ctrl) {
+        key_pressed.push("d")
+    }
+    if (globalThis.resize_ctrl) {
+        key_pressed.push("s")
+    }
+    if (globalThis.apply_on_y_axis) {
+        key_pressed.push("y")
+    }
+    if (globalThis.label_points_as_snow) {
+        key_pressed.push("1")
+    }
+    if (globalThis.label_points_as_non_snow) {
+        key_pressed.push("2")
+    }
+
+    if (globalThis.key_show_non_snow_points) {
+        key_pressed.push("v")
+    }
+    if (globalThis.key_show_snow_points) {
+        key_pressed.push("c")
+    }
+
+    $("#footer").find("p").html("x: {0}{1}y: {2}{1}key pressed: {3}".format(x.toFixed(3),
+                                                        "<br />",
+                                                        y.toFixed(3),
+                                                        key_pressed));
 }
 
 
 
 function generatePointCloud() {
     if (app.cur_pointcloud != null) {
+        console.log("app.cur_pointcloud != null app.cur_frame", app.cur_frame)
         return updatePointCloud(app.cur_frame.data, COLOR_RED);
     } else {
+        console.log("app.cur_frame", app.cur_frame)
        return generateNewPointCloud(app.cur_frame.data, COLOR_RED);
     }
 }
@@ -484,7 +530,7 @@ function move2DMode( event ) {
         controls.update();
         app.move2D = true;
     }
-    
+
 }
 
 function projectOntoXZ() {
@@ -510,7 +556,7 @@ function unprojectFromXZ() {
             v.y = app.cur_frame.ys[i];
         }
         app.cur_pointcloud.geometry.verticesNeedUpdate = true;
-    } 
+    }
 }
 
 

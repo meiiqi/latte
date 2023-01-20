@@ -1,12 +1,17 @@
+// var options = `<select>
+//     <option value="car">Car</option>
+//     <option value="van">Van</option>
+//     <option value="truck">Truck</option>
+//     <option value="pedestrian">Pedestrian</option>
+//     <option value="cyclist">Cyclist</option>
+//     <option value="sitter">Sitter</option>
+//     <option value="tram">Tram</option>
+//     <option value="misc">Misc</option>
+//     /select`;
+
 var options = `<select>
-    <option value="car">Car</option>
-    <option value="van">Van</option>
-    <option value="truck">Truck</option>
-    <option value="pedestrian">Pedestrian</option>
-    <option value="cyclist">Cyclist</option>
-    <option value="sitter">Sitter</option>
-    <option value="tram">Tram</option>
-    <option value="misc">Misc</option>
+    <option value="non-snow">Non-snow</option>
+    <option value="snow">Snow</option>
     /select`;
 
 
@@ -24,9 +29,7 @@ function addObjectRow(box) {
         <td><div class='object_row'>{1}</div></td></tr>".format(box.id, options)
     );
     if (box.object_id) {
-        console.log("asssss");
         var row = getRow(box.id);
-        console.log(row);
         $(row).find("select").val(box.object_id);
     }
     $("{0} tbody select".format(OBJECT_TABLE)).last().focus();
@@ -94,13 +97,10 @@ $(OBJECT_TABLE).on('mousedown', '.object_row_id', function(e) {
             }
         );
         box.select(null);
-        
+
         if (is_selected) {
-            // console.log("length: ", $(this).find("input"));
-            // console.log(this);
             $(this).html("<input type='text' value='{0}'>".format(boxId));
             console.log("is selected", $(this).html());
-            // selectedBox = null;
             app.editing_box_id = true;
         } else {
             selectedBox = box;
@@ -112,41 +112,60 @@ $(OBJECT_TABLE).on('mousedown', '.object_row_id', function(e) {
 
 
 // handler that saves input when input is changed
-$("#object-table").on('change', 'tbody tr', updateObjectId);
+$("#object-table").on('change', 'tbody tr', updateObject);
 
-// handler that is triggered when object table id is right-clicked
-// $("#object-table").on('contextmenu', '.id', function() {
-//     alert("hi");});
+// method to update bounding box object
+function updateObject() {
+    var boxId, label, box;
 
-
-// method to update Box's object id
-function updateObjectId() {
-    var boxId, input, box;
-    console.log("change");
-    // console.log($(this).find("input").length);
+    // Update Object ID
     if ($(this).find("input").length == 1) {
         boxId = $(this).find("input").val();
         $(this).find(".object_row_id").html(boxId);
-        console.log("input", boxId);
     }
+
     if ($(this).find("input").length == 0) {
         boxId = $(this).find(".id").text();
-        console.log("not input", boxId);
     }
-    console.log(boxId);
+
     box = getBoxById(boxId);
-    // box = selectedBox;
-    // console.log(box, selectedBox);
     if (box) {
-        input = $(this).find('select').val();
-        console.log(boxId);
-        box.object_id = input;
+        label = $(this).find('select').val();
+        box.object_id = label;
         box.set_box_id(parseInt(boxId))
-        // box.id = ;
-        console.log(box);
         box.add_timestamp();
+
+        // Label points
+        if (label == "non-snow")
+        {
+            box.unlabel()
+            if (globalThis.label_points_as_non_snow)
+            {
+                globalThis.label_points_as_non_snow = false
+            }
+            else
+            {
+                globalThis.label_points_as_non_snow = true
+                globalThis.label_points_as_snow = false
+                box.label_as_non_snow()
+            }
+        }
+        else if (label == "snow")
+        {
+            box.unlabel()
+            if (globalThis.label_points_as_snow)
+            {
+                globalThis.label_points_as_snow = false
+            }
+            else
+            {
+                globalThis.label_points_as_snow = true
+                globalThis.label_points_as_non_snow = false
+                box.label_as_snow()
+            }
+        }
     }
-    
+
     app.increment_label_count();
 }
 
@@ -160,7 +179,7 @@ function getRow(id) {
 
 // method to select row of object id table given ids
 function selectRow(id) {
-    var row = getRow(id);    
+    var row = getRow(id);
     $(row).find('select').get(0).focus();
 }
 
